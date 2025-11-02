@@ -21,7 +21,15 @@ public class TopViewGameMain
 		              };
 		
 		// 판을 틀에 끼우고 실행 준비 완료
-		ViewPanel panel = new ViewPanel( new TopViewObject( map, 1, 1, imagePath ) ); 
+                TopViewObject character = new TopViewObject( map, 1, 1, imagePath );
+                character.registerClue( 2, 3,
+                                        "이곳에서 오래된 메모를 발견했다.",
+                                        "'출구는 북동쪽에 있다'고 적혀 있다." );
+                character.registerClue( 5, 4,
+                                        "바닥에 작은 열쇠가 떨어져 있다.",
+                                        "주머니에 넣었다." );
+
+                ViewPanel panel = new ViewPanel( character );
 		
 
 		JFrame frame = new JFrame( "탑 뷰 맵" );
