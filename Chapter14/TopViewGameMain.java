@@ -54,6 +54,7 @@ public class TopViewGameMain
                                         "벽에 붙은 쪽지가 바람에 흔들린다.",
                                         "'빛이 드는 길을 따라가라'는 문장이 적혀 있다." );
 
+
                 ViewPanel panel = new ViewPanel( character );
 		
 
