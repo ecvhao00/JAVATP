@@ -53,7 +53,18 @@ public class TopViewGameMain
                 character.registerClue( 10, 20,
                                         "벽에 붙은 쪽지가 바람에 흔들린다.",
                                         "'빛이 드는 길을 따라가라'는 문장이 적혀 있다." );
-
+                character.registerClue( 4, 5,
+                                        "바닥에 남아 있는 발자국이 북동쪽으로 이어진다.",
+                                        "누군가 급히 달려간 흔적 같다." );
+                character.registerClue( 21, 5,
+                                        "벽에 걸린 시계가 멈춰 있다.",
+                                        "시곗바늘은 새벽 두 시를 가리킨 채 움직이지 않는다." );
+                character.registerClue( 18, 17,
+                                        "낡은 지도 조각을 발견했다.",
+                                        "중앙 광장에 별표 표시가 새겨져 있다." );
+                character.registerClue( 28, 9,
+                                        "천장에서 떨어진 먼지 속에서 금속성 냄새가 풍긴다.",
+                                        "근처에 숨겨진 문이 있는 것 같다." );
 
                 ViewPanel panel = new ViewPanel( character );
 		

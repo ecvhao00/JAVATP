@@ -57,17 +57,55 @@ public class ViewPanel extends JPanel
 	}
 
 	// 최신 정보 업데이트
-	protected void update() {
-		character.move();
-	}
+        protected void update() {
+                character.move();
+                if ( character instanceof TopViewObject )
+                        ( (TopViewObject) character ).tick();
+        }
 
-	// 화면 출력
-	@Override
-	public void paint( Graphics g ){
+        // 화면 출력
+        @Override
+        public void paint( Graphics g ){
                 super.paint( g );
                 character.paint( g );
                 if ( character instanceof TopViewObject ) {
                         TopViewObject topView = (TopViewObject) character;
+                        Graphics2D overlay = (Graphics2D) g.create();
+                        overlay.setFont( getFont().deriveFont( Font.BOLD, 20f ) );
+                        overlay.setColor( new Color( 0, 0, 0, 150 ) );
+                        String status = topView.getCurrentDay() + "일차  행동력 "
+                                        + topView.getActionPoints() + "/" + topView.getMaxActionPoints();
+                        FontMetrics fm = overlay.getFontMetrics();
+                        int padding = 10;
+                        int textWidth = fm.stringWidth( status );
+                        int textHeight = fm.getHeight();
+                        overlay.fillRoundRect( 12, 12, textWidth + padding * 2, textHeight + padding * 2, 12, 12 );
+                        overlay.setColor( Color.WHITE );
+                        overlay.drawString( status, 12 + padding, 12 + padding + fm.getAscent() );
+
+                        if ( topView.isDayTransitionActive() ) {
+                                String announcement = topView.getDayAnnouncement();
+                                if ( announcement != null ) {
+                                        overlay.setFont( overlay.getFont().deriveFont( 48f ) );
+                                        FontMetrics centerMetrics = overlay.getFontMetrics();
+                                        int width = getWidth();
+                                        int height = getHeight();
+                                        int annWidth = centerMetrics.stringWidth( announcement );
+                                        int annHeight = centerMetrics.getHeight();
+                                        overlay.setColor( new Color( 0, 0, 0, 180 ) );
+                                        overlay.fillRoundRect( ( width - annWidth ) / 2 - 40,
+                                                               ( height - annHeight ) / 2 - 30,
+                                                               annWidth + 80,
+                                                               annHeight + 60,
+                                                               30, 30 );
+                                        overlay.setColor( Color.WHITE );
+                                        overlay.drawString( announcement,
+                                                            ( width - annWidth ) / 2,
+                                                            ( height + centerMetrics.getAscent() ) / 2 - 10 );
+                                }
+                        }
+                        overlay.dispose();
+
                         if ( topView.hasActiveDialogue() ) {
                                 Graphics2D g2 = (Graphics2D) g.create();
                                 int width = getWidth();
