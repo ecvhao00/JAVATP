@@ -43,12 +43,17 @@ public class TopViewObject extends ObjectByKey
         private int dayTransitionTicks = 0;
         private String dayAnnouncement = null;
 
+        private boolean suspectInfoPromptPending = false;
+        private boolean awaitingSuspectInfoChoice = false;
+
         private final String[] suspects = { "123", "456", "789", "엄준식" };
         private final int culpritIndex = 1;
 
         private boolean awaitingAccusation = false;
         private boolean accusationResolved = false;
         private String accusationMessage = null;
+
+        private boolean finalStatementsPresented = false;
 
         private boolean initialDialogueStarted = false;
 
@@ -152,6 +157,8 @@ public class TopViewObject extends ObjectByKey
 
         public String[] getSuspects() { return suspects.clone(); }
 
+        public boolean isAwaitingSuspectInfoChoice() { return awaitingSuspectInfoChoice; }
+
         public boolean hasAccusationResult() {
                 return accusationResolved && (accusationMessage != null);
         }
@@ -218,7 +225,10 @@ public class TopViewObject extends ObjectByKey
                 pendingNextDay = false;
 
                 if (currentDay >= maxDay) {
-                        startAccusation();
+                        if (!finalStatementsPresented)
+                                startFinalStatements();
+                        else
+                                startAccusation();
                         return;
                 }
 
@@ -228,6 +238,7 @@ public class TopViewObject extends ObjectByKey
 
                 dayTransitionTicks = 20;
                 dayAnnouncement = "-" + currentDay + "일차-";
+                suspectInfoPromptPending = true;
         }
 
 
@@ -255,6 +266,55 @@ public class TopViewObject extends ObjectByKey
                         if (dayTransitionTicks == 0)
                                 dayAnnouncement = null;
                 }
+
+                if (dayTransitionTicks == 0 && suspectInfoPromptPending && !hasActiveDialogue()
+                                && !awaitingSuspectInfoChoice) {
+                        openSuspectInfoPrompt();
+                }
+        }
+
+
+        private void startFinalStatements() {
+                finalStatementsPresented = true;
+                dayTransitionTicks = 0;
+                dayAnnouncement = null;
+
+                java.util.List<String> lines = new java.util.ArrayList<>();
+                lines.add("123: ...내가 범인이라고? 난 그냥 길을 잃었을 뿐이야.");
+                lines.add("456: 증거가 없잖아. 난 내 무고를 믿어달라구.");
+                lines.add("789: 당신이 본 건 오해야. 난 아무 잘못 없어.");
+                lines.add("엄준식: 하... 이런 상황이라니. 그래도 난 결백하다.");
+
+                startDialogue(lines.toArray(new String[0]));
+                pendingNextDay = true;
+        }
+
+        private void openSuspectInfoPrompt() {
+                suspectInfoPromptPending = false;
+                awaitingSuspectInfoChoice = true;
+                setFrozen(true);
+        }
+
+        public void chooseSuspectInfo(boolean viewInfo) {
+                if (!awaitingSuspectInfoChoice)
+                        return;
+
+                awaitingSuspectInfoChoice = false;
+
+                if (viewInfo)
+                        startDialogue(buildSuspectInfoLines());
+                else
+                        setFrozen(false);
+        }
+
+        private String[] buildSuspectInfoLines() {
+                java.util.List<String> info = new java.util.ArrayList<>();
+                info.add("용의자 정보를 정리해보자.");
+                info.add("123: 밤마다 산책을 나가. 오늘도 예외가 아니래.");
+                info.add("456: 사건 시간엔 친구와 통화했다고 주장해.");
+                info.add("789: 현장 근처에서 목격됐지만 우연이라더군.");
+                info.add("엄준식: 여전히 자신의 결백을 강조하고 있어.");
+                return info.toArray(new String[0]);
         }
 
 

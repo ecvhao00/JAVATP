@@ -22,6 +22,15 @@ public class ViewPanel extends JPanel
                         addKeyListener( new KeyAdapter() {
                                 @Override
                                 public void keyPressed( KeyEvent event ) {
+                                        if ( topView.isAwaitingSuspectInfoChoice() ) {
+                                                Boolean decision = translateYesNo( event.getKeyCode() );
+                                                if ( decision != null ) {
+                                                        topView.chooseSuspectInfo( decision );
+                                                        event.consume();
+                                                        repaint();
+                                                }
+                                                return;
+                                        }
                                         if ( topView.isAwaitingAccusation() ) {
                                                 int choice = translateChoice( event.getKeyCode() );
                                                 if ( choice >= 0 ) {
@@ -55,6 +64,14 @@ public class ViewPanel extends JPanel
                                         default:
                                                 return -1;
                                         }
+                                }
+
+                                private Boolean translateYesNo( int keyCode ) {
+                                        if ( keyCode == KeyEvent.VK_1 || keyCode == KeyEvent.VK_NUMPAD1 )
+                                                return Boolean.TRUE;
+                                        if ( keyCode == KeyEvent.VK_2 || keyCode == KeyEvent.VK_NUMPAD2 )
+                                                return Boolean.FALSE;
+                                        return null;
                                 }
                         } );
                         addMouseListener( new MouseAdapter() {
@@ -131,6 +148,39 @@ public class ViewPanel extends JPanel
                                                             ( width - annWidth ) / 2,
                                                             ( height + centerMetrics.getAscent() ) / 2 - 10 );
                                 }
+                        }
+
+                        if ( topView.isAwaitingSuspectInfoChoice() ) {
+                                Graphics2D prompt = (Graphics2D) g.create();
+                                int width = getWidth();
+                                int height = getHeight();
+                                int boxWidth = Math.min( 520, width - 80 );
+                                int boxHeight = 200;
+                                int boxX = ( width - boxWidth ) / 2;
+                                int boxY = ( height - boxHeight ) / 2;
+
+                                prompt.setColor( new Color( 0, 0, 0, 190 ) );
+                                prompt.fillRoundRect( boxX, boxY, boxWidth, boxHeight, 22, 22 );
+                                prompt.setColor( Color.WHITE );
+                                prompt.setStroke( new BasicStroke( 2.5f ) );
+                                prompt.drawRoundRect( boxX, boxY, boxWidth, boxHeight, 22, 22 );
+
+                                Font titleFont = getFont().deriveFont( Font.BOLD, 24f );
+                                prompt.setFont( titleFont );
+                                String question = "용의자의 정보를 보시겠습니까?";
+                                FontMetrics titleMetrics = prompt.getFontMetrics();
+                                prompt.drawString( question,
+                                                   boxX + ( boxWidth - titleMetrics.stringWidth( question ) ) / 2,
+                                                   boxY + 70 );
+
+                                Font optionFont = getFont().deriveFont( Font.PLAIN, 18f );
+                                prompt.setFont( optionFont );
+                                String yes = "예(1)";
+                                String no = "아니오(2)";
+                                prompt.drawString( yes, boxX + 80, boxY + 120 );
+                                prompt.drawString( no, boxX + boxWidth - 80 - prompt.getFontMetrics().stringWidth( no ), boxY + 120 );
+
+                                prompt.dispose();
                         }
                         overlay.dispose();
 
