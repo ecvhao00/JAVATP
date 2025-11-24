@@ -8,8 +8,11 @@ import javax.swing.*;
 
 public class TopViewObject extends ObjectByKey
 {
-        protected int[][] map;
-        protected Image[] image;
+        // ------------------------------
+        // 맵과 이미지 관련 필드
+        // ------------------------------
+        protected int[][] map;          // 현재 플레이 중인 맵 (타일 번호로 구성)
+        protected Image[] image;        // 기본 이미지(길, 벽, 캐릭터, 단서)
 
         // 기본 타입
         protected final int PATH = 0;
@@ -18,41 +21,58 @@ public class TopViewObject extends ObjectByKey
         protected final int CLUE = 3;
 
         // 추가 벽/단서 스프라이트 타입 확장
+        // 추가로 등록할 수 있는 벽/단서 스프라이트 저장소 (인덱스 0~9 사용)
         protected Image[] wallSprites = new Image[10];
         protected Image[] clueSprites = new Image[10];
 
+        // 단서 좌표별 대사 저장소 (맵 좌표 → 대사 배열)
         private final java.util.Map<java.awt.Point, String[]> clueDialogues = new java.util.HashMap<>();
         private final java.util.Map<java.awt.Point, String[]> baseClueDialogues = new java.util.HashMap<>();
         private final java.util.Deque<String> activeDialogue = new java.util.ArrayDeque<>();
 
+        // 초기 상태를 기억해 두었다가 날짜가 바뀔 때 복구하기 위해 사용
         private final int[][] initialMap;
 
+        // 시작 위치 (매일 리셋할 때 돌아갈 자리)
         private final int startX;
         private final int startY;
 
         private boolean dialogueReady = false;
         private boolean skipNextAdvance = false;
 
+        // 행동력/일차 관리 (초보자가 게임 루프를 이해하기 쉽게 따로 묶음)
         private int actionPoints = 3;
         private final int maxActionPoints = 3;
 
         private int currentDay = 1;
         private final int maxDay = 4;
 
+        // 다음 날로 넘어갈지 여부 및 화면에 띄울 안내 문구
         private boolean pendingNextDay = false;
         private int dayTransitionTicks = 0;
         private String dayAnnouncement = null;
 
+        // 용의자 정보 보기/범인 지목 진행에 필요한 상태 변수
         private boolean suspectInfoPromptPending = false;
         private boolean awaitingSuspectInfoChoice = false;
 
         private final String[] suspects = { "123", "456", "789", "엄준식" };
-        private final int culpritIndex = 1;
+        private final int culpritIndex = 1;   // 정답은 2번째(인덱스 1)
+
+        // 최종 진술용 초상화(1280x960 이미지 권장)
+        private final Image[] suspectPortraits = new Image[suspects.length];
+
+        // 마지막 날에 출력될 최종 진술 스크립트와 진행 상태
+        private String[][] finalStatementScripts;
+        private boolean finalStatementActive = false;
+        private int finalStatementIndex = -1;
+        private int activePortraitIndex = -1;
 
         private boolean awaitingAccusation = false;
         private boolean accusationResolved = false;
         private String accusationMessage = null;
 
+        // 결말 이벤트 진행 여부
         private boolean finalStatementsPresented = false;
 
         private boolean initialDialogueStarted = false;
@@ -62,6 +82,7 @@ public class TopViewObject extends ObjectByKey
 
                 super(imagePath+"character.png", x, y, 0, 0, map[0].length-1, map.length-1);
 
+                // 1) 맵 복사: 원본을 훼손하지 않고, 나중에 리셋할 수 있도록 두 벌을 만든다.
                 this.map = new int[map.length][map[0].length];
                 this.initialMap = new int[map.length][map[0].length];
 
@@ -70,9 +91,11 @@ public class TopViewObject extends ObjectByKey
                         System.arraycopy(map[row], 0, this.initialMap[row], 0, map[row].length);
                 }
 
+                // 2) 시작 위치 기억 (리셋 시 필요)
                 this.startX = x;
                 this.startY = y;
 
+                // 3) 기본 타일 이미지 로드
                 this.image = new Image[4];
                 this.image[PATH     ] = new ImageIcon(imagePath + "path.png").getImage();
                 this.image[WALL     ] = new ImageIcon(imagePath + "wall.png").getImage();
@@ -82,12 +105,16 @@ public class TopViewObject extends ObjectByKey
                 // 기본 벽/단서 스프라이트도 하나 등록
                 wallSprites[0] = image[WALL];
                 clueSprites[0] = image[CLUE];
-                
-                //스프라이트 추가 벽과 단서 당 9개씩만 가능
+
+                // 4) 추가 스프라이트 샘플 등록 (인덱스 1 사용)
+                //    필요한 이미지를 경로만 바꿔서 덮어쓰면 됨
                 setWallSprite(1, "img/bullet.png");
                 setClueSprite(1, "img/paper.png");
 
-                // 시작 대사
+                // 4-1) 마지막 날에 쓸 기본 최종 진술 스크립트 생성
+                buildDefaultFinalStatementScripts();
+
+                // 5) 시작 대사 (게임 시작 후 바로 출력)
                 startInitialDialogue(
                         "…여기가 어디지?",
                         "어딘가에서 사건의 냄새가 난다.",
@@ -115,6 +142,7 @@ public class TopViewObject extends ObjectByKey
                 startDialogue(lines);
         }
 
+        // 맵의 특정 좌표에 단서(대사)를 등록하고, 타일을 CLUE 로 바꾼다.
         public void registerClue(int tileX, int tileY, String... lines) {
                 java.awt.Point point = new java.awt.Point(tileX, tileY);
                 String[] copy = (lines == null) ? new String[0] : lines.clone();
@@ -166,6 +194,7 @@ public class TopViewObject extends ObjectByKey
 
 
         public void advanceDialogue(boolean bypassGuard) {
+                // 대사를 한 줄 넘긴다. bypassGuard 가 true 면 첫 줄 보호를 무시한다.
                 if (activeDialogue.isEmpty() || !dialogueReady)
                         return;
 
@@ -179,19 +208,30 @@ public class TopViewObject extends ObjectByKey
                 dialogueReady = false;
 
                 if (activeDialogue.isEmpty()) {
-                        setFrozen(false);
-                        maybeAdvanceDay();
+                        handleDialogueFinished();
                 } else {
                         skipNextAdvance = true;
                 }
         }
 
         public void markDialogueReady() {
+                // paint()에서 대사를 그린 후 호출 → 이제 키 입력을 받아도 안전함을 표시
                 if (!activeDialogue.isEmpty())
                         dialogueReady = true;
         }
 
+        private void handleDialogueFinished() {
+                // 대사가 모두 소진되었을 때 후속 동작 처리
+                setFrozen(false);
 
+                if (finalStatementActive) {
+                        // 다음 인물의 최종 진술을 이어서 보여줌
+                        advanceFinalStatement();
+                        return;
+                }
+
+                maybeAdvanceDay();
+        }
 
         private void startDialogue(String[] lines) {
                 activeDialogue.clear();
@@ -203,11 +243,13 @@ public class TopViewObject extends ObjectByKey
                 dialogueReady = false;
                 skipNextAdvance = !activeDialogue.isEmpty();
                 setFrozen(!activeDialogue.isEmpty());
-                maybeAdvanceDay();
+                if (!finalStatementActive)
+                        maybeAdvanceDay();
         }
 
 
         private void consumeAction() {
+                // 단서를 습득하거나 특정 이벤트 발생 시 행동력 감소
                 if (actionPoints > 0) {
                         actionPoints--;
                         if (actionPoints <= 0)
@@ -216,6 +258,7 @@ public class TopViewObject extends ObjectByKey
         }
 
         private void maybeAdvanceDay() {
+                // 대사 출력이 모두 끝났다면 다음 날로 넘어갈 준비
                 if (pendingNextDay && activeDialogue.isEmpty())
                         advanceDay();
         }
@@ -261,6 +304,7 @@ public class TopViewObject extends ObjectByKey
 
 
         public void tick() {
+                // 매 프레임 호출: 날짜 전환 애니메이션 타이머와 용의자 정보 팝업 관리
                 if (dayTransitionTicks > 0) {
                         dayTransitionTicks--;
                         if (dayTransitionTicks == 0)
@@ -275,27 +319,61 @@ public class TopViewObject extends ObjectByKey
 
 
         private void startFinalStatements() {
+                // 마지막 날 이전에 모든 용의자의 최종 진술을 한 번씩 보여준다.
                 finalStatementsPresented = true;
+                finalStatementActive = true;
+                finalStatementIndex = 0;
+                activePortraitIndex = 0;
+                suspectInfoPromptPending = false;
+                awaitingSuspectInfoChoice = false;
                 dayTransitionTicks = 0;
                 dayAnnouncement = null;
 
-                java.util.List<String> lines = new java.util.ArrayList<>();
-                lines.add("123: ...내가 범인이라고? 난 그냥 길을 잃었을 뿐이야.");
-                lines.add("456: 증거가 없잖아. 난 내 무고를 믿어달라구.");
-                lines.add("789: 당신이 본 건 오해야. 난 아무 잘못 없어.");
-                lines.add("엄준식: 하... 이런 상황이라니. 그래도 난 결백하다.");
+                beginCurrentFinalStatement();
+        }
 
-                startDialogue(lines.toArray(new String[0]));
-                pendingNextDay = true;
+        private void beginCurrentFinalStatement() {
+                // 현재 인덱스에 해당하는 인물의 초상화 + 대사를 시작
+                if (finalStatementScripts == null || finalStatementScripts.length == 0) {
+                        // 안전장치: 스크립트가 비어있다면 바로 범인 지목으로 이동
+                        finalStatementActive = false;
+                        startAccusation();
+                        return;
+                }
+
+                if (finalStatementIndex < 0 || finalStatementIndex >= finalStatementScripts.length) {
+                        finalStatementActive = false;
+                        startAccusation();
+                        return;
+                }
+
+                activePortraitIndex = finalStatementIndex;
+                startDialogue(finalStatementScripts[finalStatementIndex]);
+        }
+
+        private void advanceFinalStatement() {
+                finalStatementIndex++;
+
+                if (finalStatementIndex >= finalStatementScripts.length) {
+                        // 모든 진술이 끝났으니 범인 지목 창을 띄움
+                        finalStatementActive = false;
+                        activePortraitIndex = -1;
+                        startAccusation();
+                        return;
+                }
+
+                beginCurrentFinalStatement();
         }
 
         private void openSuspectInfoPrompt() {
+                // "용의자 정보를 볼까요?" 팝업을 띄우기 전에 이동을 멈춘다.
                 suspectInfoPromptPending = false;
                 awaitingSuspectInfoChoice = true;
                 setFrozen(true);
         }
 
         public void chooseSuspectInfo(boolean viewInfo) {
+                // 팝업 선택 결과 처리: true 면 정보 대사를 출력, false 면 그대로 진행
                 if (!awaitingSuspectInfoChoice)
                         return;
 
@@ -325,10 +403,13 @@ public class TopViewObject extends ObjectByKey
                 setFrozen(true);
                 dayTransitionTicks = 0;
                 dayAnnouncement = null;
+                finalStatementActive = false;
+                activePortraitIndex = -1;
         }
 
 
         public void chooseSuspect(int index) {
+                // 범인을 선택한다. 잘못된 입력이면 무시, 맞으면 성공 메시지 출력
                 if (!awaitingAccusation || accusationResolved) return;
                 if (index < 0 || index >= suspects.length) return;
 
@@ -339,9 +420,58 @@ public class TopViewObject extends ObjectByKey
                 accusationMessage = success ? "범인 찾기 성공!" : "범인 찾기 실패..";
         }
 
+        // --------------- 최종 진술 + 초상화 관련 도우미 ---------------
+        public void setSuspectPortrait(int index, String imgPath) {
+                // index: suspects 배열 인덱스, 1280x960 이미지를 권장
+                if (index < 0 || index >= suspectPortraits.length) return;
+                suspectPortraits[index] = new ImageIcon(imgPath).getImage();
+        }
+
+        public boolean isFinalStatementInProgress() {
+                return finalStatementActive && activePortraitIndex >= 0;
+        }
+
+        public Image getCurrentPortrait() {
+                if (!isFinalStatementInProgress()) return null;
+                return suspectPortraits[activePortraitIndex];
+        }
+
+        public String getCurrentPortraitName() {
+                if (!isFinalStatementInProgress()) return null;
+                return suspects[activePortraitIndex];
+        }
+
+        public Dimension getPreferredPortraitSize() {
+                // 기본 권장 크기 1280x960을 반환 (실제 이미지 크기가 다를 수 있음)
+                return new Dimension(1280, 960);
+        }
+
+        private void buildDefaultFinalStatementScripts() {
+                // suspects 배열 길이와 맞춘 기본 최종 진술 스크립트 세팅
+                finalStatementScripts = new String[][]{
+                        {
+                                "123: ...내가 범인이라고? 난 그냥 길을 잃었을 뿐이야.",
+                                "거칠게 굴었을진 몰라도, 이런 일에 손댈 사람은 아니라고."
+                        },
+                        {
+                                "456: 증거가 없잖아. 난 내 무고를 믿어달라구.",
+                                "오늘 밤 내내 친구와 통화하며 시간을 보냈어."
+                        },
+                        {
+                                "789: 당신이 본 건 오해야. 난 아무 잘못 없어.",
+                                "현장 근처에 있던 건 맞지만, 그냥 돌아다닌 것뿐이야."
+                        },
+                        {
+                                "엄준식: 하... 이런 상황이라니. 그래도 난 결백하다.",
+                                "나와 관련된 단서가 있다면, 직접 보여주길 바라."
+                        },
+                };
+        }
+
 
         @Override
         public void move(int directionX, int directionY) {
+                // 방향키로 이동 요청이 들어왔을 때의 충돌/단서 처리
                 int nextX = x + directionX;
                 int nextY = y + directionY;
                 
@@ -374,6 +504,7 @@ public class TopViewObject extends ObjectByKey
 
         @Override
         public void paint(Graphics g) {
+                // 1) 맵 타일을 먼저 그림 → 2) 캐릭터와 단서/벽 순서대로 출력
                 for (int y = 0; y < map.length; y++) {
                         for (int x = 0; x < map[0].length; x++) {
 
