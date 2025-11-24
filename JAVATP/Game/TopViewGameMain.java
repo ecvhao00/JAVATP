@@ -7,10 +7,23 @@ import move.ViewPanel;
 
 public class TopViewGameMain
 {
-	public static void main( String[] args )
-	{
-		final String imagePath = "C:\\Users\\minky\\Downloads\\JAVATP-codex-add-final-statements-for-suspects-before-choosing\\JAVATP\\src\\move\\image\\";
-		// 미로 맵을 2차원 배열로 초기화
+        public static void main( String[] args )
+        {
+                // -------------------------------------------------------
+                // 1) 게임에 사용할 이미지 폴더 경로와 배경 이미지 설정
+                //    - imagePath      : 캐릭터, 벽, 단서 등 스프라이트가 위치한 폴더
+                //    - backgroundPath : 게임 화면(1280x720)에 깔릴 배경 이미지
+                //  경로만 올바르게 바꿔주면 그대로 실행할 수 있습니다.
+                // -------------------------------------------------------
+                final String imagePath = "C:\\Users\\minky\\Downloads\\JAVATP-codex-add-final-statements-for-suspects-before-choosing\\JAVATP\\src\\move\\image\\";
+                final String backgroundPath = imagePath + "background.png";   // 1280x720 배경
+
+                // -------------------------------------------------------
+                // 2) 맵 정보 작성
+                //    map[y][x] 의 값으로 타일을 표현합니다.
+                //    0: 길(PATH), 1: 벽(WALL), 11~19: 커스텀 벽, 3 또는 20~29: 단서
+                //    초보자도 쉽게 수정하도록 모든 값을 한눈에 볼 수 있게 나열했습니다.
+                // -------------------------------------------------------
                 int[][] map = {
                         { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
                         { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
@@ -38,23 +51,52 @@ public class TopViewGameMain
                         { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
                               };
 
-                // 판을 틀에 끼우고 실행 준비 완료
+                // -------------------------------------------------------
+                // 3) 캐릭터 생성
+                //    TopViewObject(맵, 시작X, 시작Y, 이미지 폴더)
+                //    - 시작 위치는 맵 좌표(열, 행) 기준입니다.
+                //    - 이미지 폴더에는 path.png, wall.png, character.png, clue.png 파일이 필요합니다.
+                // -------------------------------------------------------
                 TopViewObject character = new TopViewObject( map, 1, 6, imagePath );
 
-                //위치값 적고 스프라이트 인덱스값 적으면됌
+                // -------------------------------------------------------
+                // 3-1) 마지막 날에 크게 띄울 용의자 초상화(1280x960 권장)
+                //      - 이미지가 없으면 null 그대로 진행되지만, 있다면 4:3 비율로 전체 화면에 표시됩니다.
+                //      - 인덱스 순서: 0=123, 1=456, 2=789, 3=엄준식
+                // -------------------------------------------------------
+                character.setSuspectPortrait(0, imagePath + "portrait_123.png");
+                character.setSuspectPortrait(1, imagePath + "portrait_456.png");
+                character.setSuspectPortrait(2, imagePath + "portrait_789.png");
+                character.setSuspectPortrait(3, imagePath + "portrait_um.png");
+
+                // -------------------------------------------------------
+                // 4) 맵에 단서/스프라이트 정보 넣기
+                //    setClueSpriteIndex( X, Y, 사용할 단서 스프라이트 인덱스 )
+                //    registerClue( X, Y, "대사1", "대사2" ... )
+                // -------------------------------------------------------
                 character.setClueSpriteIndex(6, 4, 1);
 
                 character.registerClue( 28, 9,
                                         "마지막 힌트." );
 
-                ViewPanel panel = new ViewPanel( character );
+                ViewPanel panel = new ViewPanel( character, backgroundPath );
                 
-                //스프라이트 추가
+                // -------------------------------------------------------
+                // 5) 벽과 단서 스프라이트(이미지) 교체
+                //    - 1번 벽 스프라이트를 bullet.png 로
+                //    - 1번 단서 스프라이트를 paper.png 로 지정합니다.
+                //    이미지 파일만 교체하면 모양을 쉽게 바꿀 수 있습니다.
+                // -------------------------------------------------------
                 character.setWallSprite(1, imagePath + "bullet.png");
                 character.setClueSprite(1, imagePath + "paper.png");
 
-		JFrame frame = new JFrame( "추리게임" );
-		frame.getContentPane().add( panel );
+                // -------------------------------------------------------
+                // 6) Swing 윈도우에 패널 부착 후 실행
+                //    - frame.pack() : ViewPanel의 preferred size(맵 크기)를 이용해 창 크기 결정
+                //    - setVisible(true) : 창을 화면에 표시
+                // -------------------------------------------------------
+                JFrame frame = new JFrame( "추리게임" );
+                frame.getContentPane().add( panel );
 		frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
 		frame.pack();
 		frame.setVisible(true);
